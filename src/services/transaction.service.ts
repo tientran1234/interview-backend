@@ -220,13 +220,11 @@ class TransactionService {
             });
         }
 
-        // 1. Số dư đầu kỳ (trước from)
         const openingBalance = await this.getWalletBalanceAtDate(
             walletObjectId,
             from
         );
 
-        // 2. Tổng thu / chi trong kỳ (aggregate như cũ)
         const agg = await databaseService.transactions
             .aggregate([
                 {
@@ -259,7 +257,6 @@ class TransactionService {
         const total_expense = summary.total_expense || 0;
         const closing_balance = openingBalance + total_income - total_expense;
 
-        // 3. Sao kê chi tiết + đầu kỳ / cuối kỳ từng giao dịch (aggregate chuẩn chỉnh 😎)
         const items = await databaseService.transactions
             .aggregate([
                 {
@@ -272,11 +269,11 @@ class TransactionService {
                 {
                     $sort: {
                         trans_date: 1,
-                        _id: 1 // để đảm bảo order ổn định
+                        _id: 1
                     }
                 },
                 {
-                    // delta: +amount nếu income, -amount nếu expense
+
                     $addFields: {
                         delta: {
                             $cond: [
@@ -288,7 +285,7 @@ class TransactionService {
                     }
                 },
                 {
-                    // cumulative_delta: cộng dồn delta từ giao dịch đầu tiên tới hiện tại
+
                     $setWindowFields: {
                         sortBy: { trans_date: 1, _id: 1 },
                         output: {
@@ -300,7 +297,7 @@ class TransactionService {
                     }
                 },
                 {
-                    // dùng openingBalance (JS variable) để tính
+
                     $addFields: {
                         opening_balance: {
                             $add: [
