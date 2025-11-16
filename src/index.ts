@@ -17,7 +17,7 @@ app.use("/categories", categoriesRouter)
 app.use("/transactions", transactionsRouter)
 app.use(defaultErrorHandler)
 
-app.listen(3000, () => {
+app.listen(3001, () => {
     console.log("App listening in 3000");
 
 })

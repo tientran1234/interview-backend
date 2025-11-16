@@ -195,8 +195,6 @@ class TransactionService {
         user_id: string,
         params: { wallet_id: string; from_date: Date; to_date: Date }
     ) {
-
-
         const userObjectId = new ObjectId(user_id);
         const walletObjectId = new ObjectId(params.wallet_id);
 
@@ -215,8 +213,6 @@ class TransactionService {
         const from = params.from_date;
         const to = params.to_date;
 
-
-
         if (from > to) {
             throw new ErrorWithStatus({
                 message: "Ngày bắt đầu không được lớn hơn ngày kết thúc",
@@ -224,12 +220,13 @@ class TransactionService {
             });
         }
 
-        const opening_balance = await this.getWalletBalanceAtDate(
+        // 1. Số dư đầu kỳ (trước from)
+        const openingBalance = await this.getWalletBalanceAtDate(
             walletObjectId,
             from
         );
 
-
+        // 2. Tổng thu / chi trong kỳ (aggregate như cũ)
         const agg = await databaseService.transactions
             .aggregate([
                 {
@@ -257,21 +254,72 @@ class TransactionService {
             ])
             .toArray();
 
-
-
         const summary = agg[0] || { total_income: 0, total_expense: 0 };
-
         const total_income = summary.total_income || 0;
         const total_expense = summary.total_expense || 0;
-        const closing_balance = opening_balance + total_income - total_expense;
+        const closing_balance = openingBalance + total_income - total_expense;
 
+        // 3. Sao kê chi tiết + đầu kỳ / cuối kỳ từng giao dịch (aggregate chuẩn chỉnh 😎)
         const items = await databaseService.transactions
-            .find({
-                wallet_id: walletObjectId,
-                user_id: userObjectId,
-                trans_date: { $gte: from, $lte: to }
-            })
-            .sort({ trans_date: 1 })
+            .aggregate([
+                {
+                    $match: {
+                        wallet_id: walletObjectId,
+                        user_id: userObjectId,
+                        trans_date: { $gte: from, $lte: to }
+                    }
+                },
+                {
+                    $sort: {
+                        trans_date: 1,
+                        _id: 1 // để đảm bảo order ổn định
+                    }
+                },
+                {
+                    // delta: +amount nếu income, -amount nếu expense
+                    $addFields: {
+                        delta: {
+                            $cond: [
+                                { $eq: ["$type", "income"] },
+                                "$amount",
+                                { $multiply: ["$amount", -1] }
+                            ]
+                        }
+                    }
+                },
+                {
+                    // cumulative_delta: cộng dồn delta từ giao dịch đầu tiên tới hiện tại
+                    $setWindowFields: {
+                        sortBy: { trans_date: 1, _id: 1 },
+                        output: {
+                            cumulative_delta: {
+                                $sum: "$delta",
+                                window: { documents: ["unbounded", "current"] }
+                            }
+                        }
+                    }
+                },
+                {
+                    // dùng openingBalance (JS variable) để tính
+                    $addFields: {
+                        opening_balance: {
+                            $add: [
+                                openingBalance,
+                                { $subtract: ["$cumulative_delta", "$delta"] }
+                            ]
+                        },
+                        closing_balance: {
+                            $add: [openingBalance, "$cumulative_delta"]
+                        }
+                    }
+                },
+                {
+                    $project: {
+                        delta: 0,
+                        cumulative_delta: 0
+                    }
+                }
+            ])
             .toArray();
 
         return {
@@ -284,13 +332,14 @@ class TransactionService {
                 from_date: from,
                 to_date: to
             },
-            opening_balance,
+            opening_balance: openingBalance,
             total_income,
             total_expense,
             closing_balance,
             items
         };
     }
+
 }
 
 const transactionService = new TransactionService();
