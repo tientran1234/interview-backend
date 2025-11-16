@@ -1,27 +1,20 @@
-
-
 import { Category, CategoryKind } from "~/models/schemas/Category.schema";
 import databaseService from "./database.service";
 import { ObjectId } from "mongodb";
-
 class CategoryService {
     async createCategory(user_id: string, payload: { name: string; type: CategoryKind }) {
         const userObjectId = new ObjectId(user_id);
-
         const category = new Category({
             name: payload.name,
             type: payload.type,
             user_id: userObjectId
         });
-
         const result = await databaseService.categories.insertOne(category);
-
         return {
             ...category,
             _id: result.insertedId
         };
     }
-
     async getCategories(params: {
         user_id: string;
         type?: CategoryKind;
@@ -30,10 +23,8 @@ class CategoryService {
         isReport?: string
     }) {
         const userObjectId = new ObjectId(params.user_id);
-
-
         let filter: any = {}
-        console.log(params.isReport);
+
 
         if (params.isReport) {
             filter = {
@@ -44,11 +35,9 @@ class CategoryService {
                 ]
             }
         } else {
-
             filter = {
                 $or: [
                     { user_id: userObjectId },
-
                     { is_default: true }
                 ]
             }

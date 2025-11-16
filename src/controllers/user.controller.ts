@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
 import { envConfig } from "~/constants/config"
-import { LogoutReqBody, TokenPayload } from "~/models/requests/User.request"
+import { LogoutReqBody, RefreshTokenReqBody, TokenPayload } from "~/models/requests/User.request"
 import usersService from "~/services/user.service"
 import { ParamsDictionary } from 'express-serve-static-core'
 
@@ -19,5 +19,11 @@ export const logoutController = async (req: Request<ParamsDictionary, any, Logou
 export const getMeController = async (req: Request, res: Response) => {
     const { user_id } = req.decoded_authorization as TokenPayload
     const result = await usersService.getMe(user_id)
+    return res.json(result)
+}
+export const refreshTokenController = async (req: Request<ParamsDictionary, any, RefreshTokenReqBody>, res: Response) => {
+
+    const { exp, user_id } = req.decoded_refresh_token as TokenPayload
+    const result = await usersService.refreshToken({ user_id, exp, refresh_token: req.body.refresh_token })
     return res.json(result)
 }

@@ -1,5 +1,4 @@
 import { ObjectId } from "mongodb";
-
 import {
     Transaction,
     TransactionKind,
@@ -251,7 +250,6 @@ class TransactionService {
                 }
             ])
             .toArray();
-
         const summary = agg[0] || { total_income: 0, total_expense: 0 };
         const total_income = summary.total_income || 0;
         const total_expense = summary.total_expense || 0;

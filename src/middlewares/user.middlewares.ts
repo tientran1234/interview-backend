@@ -31,10 +31,13 @@ export const refreshTokenValidator = validate(
                 custom: {
                     options: async (value, { req }) => {
                         if (!value) throw new ErrorWithStatus({ message: USERS_MESSAGES.REFRESH_TOKEN_REQUIRED, status: HTTP_STATUS.UNAUTHORIZED })
+
+
                         const [decoded, tokenDoc] = await Promise.all([
                             verifyToken({ token: value, secretOrPublicKey: envConfig.jwtSecretRefreshToken }),
                             databaseService.refreshTokens.findOne({ token: value })
                         ])
+
                         if (!tokenDoc) throw new ErrorWithStatus({ message: USERS_MESSAGES.USED_REFRESH_TOKEN_OR_NOT_EXIST, status: HTTP_STATUS.UNAUTHORIZED })
                         req.decoded_refresh_token = decoded
                     }
