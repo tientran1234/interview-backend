@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.DS_Store
+.env.production
+.env.development
+uploads/git rm --cached ./src/data.json
